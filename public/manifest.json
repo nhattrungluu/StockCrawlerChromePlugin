@@ -3,7 +3,7 @@
   "version": "1.0",
   "description": "Build an Extension!",
   "background": {
-    "service_worker": "/script/background.js"
+    "service_worker": "background.js"
   },
   "action": {
     "default_popup": "index.html",
