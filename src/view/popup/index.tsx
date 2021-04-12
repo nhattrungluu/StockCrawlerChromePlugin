@@ -246,7 +246,7 @@ class PopUp extends React.Component<any, State> {
     } = this.state;
     return (
       <div className="popupContainer">
-        <p>FOMO Crawler inda house !!!</p>
+        <p>Vietnam Stock Manager inda house !!!</p>
         <p> Unit : 000 VND </p>
         <table className="container">
           <thead>

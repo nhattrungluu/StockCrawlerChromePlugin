@@ -1,7 +1,7 @@
 {
-  "name": "FOMO Watcher",
+  "name": "Vietnam Stock Manager",
   "version": "1.0",
-  "description": "Watch your Vietnam stock extension",
+  "description": "This is an extension to manage your Vietnam stock values",
   "background": {
     "page": "background.html",
     "persistent": false
