@@ -53,7 +53,7 @@ if (chrome) {
             const {
               price: newPrice,
               originalPrice: newOriginalPrice,
-            } = batchUpdateData;
+            } = batchUpdateData[stockName];
             const { price, originalPrice } = stocks[stockName];
             if (newPrice !== price || newOriginalPrice !== originalPrice) {
               console.log(
