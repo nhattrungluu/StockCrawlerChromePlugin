@@ -25,7 +25,9 @@ setInterval(() => {
           };
         }
       });
-      chrome.runtime.sendMessage({ data: data });
+      if (Object.keys(data).length > 0) {
+        chrome.runtime.sendMessage({ data: data });
+      }
     });
   }
 }, 5000);

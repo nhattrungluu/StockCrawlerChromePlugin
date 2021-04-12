@@ -25,6 +25,7 @@ type State = {
   chartData: ChartData;
 };
 
+const MAX_ELEMENTS = 100;
 class PopUp extends React.Component<any, State> {
   _changeListener: Object | null = null;
   constructor(props: any) {
@@ -40,23 +41,26 @@ class PopUp extends React.Component<any, State> {
   }
   componentDidMount() {
     this._initStoredStock();
+    document.addEventListener("keyup", this._onKeyUp);
     if (chrome && chrome.storage) {
       this._changeListener = chrome.storage.onChanged.addListener(
         (changes: { stocks: { oldValue: StockMap; newValue: StockMap } }) => {
           if (!!changes.stocks) {
             const newTotalValue = this._calculateTotal(changes.stocks.newValue);
-
             this.setState(({ chartData }) => {
               const { data, time } = chartData;
+              const newData = [...data, newTotalValue];
+              const newTime = [...time, getCurrentTimeChartLabel()];
               return {
                 stocks: changes.stocks.newValue,
-                chartData:
-                  data.length === 0 || data[data.length - 1] !== newTotalValue
-                    ? {
-                        data: [...data, newTotalValue],
-                        time: [...time, getCurrentTimeChartLabel()],
-                      }
-                    : chartData,
+                chartData: {
+                  data: newData.slice(
+                    Math.max(newData.length - MAX_ELEMENTS, 0)
+                  ),
+                  time: newTime.slice(
+                    Math.max(newData.length - MAX_ELEMENTS, 0)
+                  ),
+                },
               };
             }, this._syncWithChromeStorage);
           }
@@ -69,7 +73,22 @@ class PopUp extends React.Component<any, State> {
     if (chrome && chrome.storage) {
       chrome.storage.onChanged.removeListener(this._changeListener);
     }
+    document.removeEventListener("keyup", this._onKeyUp);
   }
+
+  _onKeyUp = (event: { keyCode: number }) => {
+    if (event.keyCode === 13) {
+      const { editingQuantityStock, newStockName } = this.state;
+      if (!!editingQuantityStock) {
+        this._onUpdateQuantitySubmit();
+        return;
+      }
+
+      if (!!newStockName) {
+        this._onNewStockSubmit();
+      }
+    }
+  };
 
   _initStoredStock = () => {
     if (!chrome || !chrome.storage) {
@@ -79,6 +98,7 @@ class PopUp extends React.Component<any, State> {
       ["stocks", "chartData"],
       ({ stocks, chartData }: { stocks?: StockMap; chartData?: ChartData }) => {
         if (!!stocks || !!chartData) {
+          //console.log("chartData", chartData);
           this.setState(
             ({
               stocks: currentStockDataInState,
@@ -115,7 +135,7 @@ class PopUp extends React.Component<any, State> {
       this.setState({
         [name]:
           name === "newStockQuantity"
-            ? Math.max(0, parseInt(value))
+            ? Math.max(0, !!value ? parseInt(value) : 0)
             : value.toUpperCase(),
       });
     }
@@ -128,18 +148,16 @@ class PopUp extends React.Component<any, State> {
     };
   }) => {
     const { value } = event.target;
-    {
-      this.setState(({ editingQuantityStock }) =>
-        editingQuantityStock
-          ? {
-              editingQuantityStock: {
-                ...editingQuantityStock,
-                quantity: Math.max(0, parseInt(value)),
-              },
-            }
-          : null
-      );
-    }
+    this.setState(({ editingQuantityStock }) =>
+      editingQuantityStock
+        ? {
+            editingQuantityStock: {
+              ...editingQuantityStock,
+              quantity: Math.max(0, Math.max(0, !!value ? parseInt(value) : 0)),
+            },
+          }
+        : null
+    );
   };
 
   _syncWithChromeStorage = () => {
@@ -178,10 +196,12 @@ class PopUp extends React.Component<any, State> {
     if (window.confirm(`Are u sure to delete ${stockName}`)) {
       const clonedStocks = { ...this.state.stocks };
       delete clonedStocks[stockName];
-      this.setState({
-        stocks: clonedStocks,
-      });
-      this._syncWithChromeStorage();
+      this.setState(
+        {
+          stocks: clonedStocks,
+        },
+        this._syncWithChromeStorage
+      );
     }
   };
 
@@ -227,7 +247,7 @@ class PopUp extends React.Component<any, State> {
     return (
       <div className="popupContainer">
         <p>FOMO Crawler inda house !!!</p>
-
+        <p> Unit : 000 VND </p>
         <table className="container">
           <thead>
             <tr>
@@ -235,19 +255,19 @@ class PopUp extends React.Component<any, State> {
                 <h1>Stock</h1>
               </th>
               <th>
-                <h1>Today Open Price (000 VND)</h1>
+                <h1>Today Open Price </h1>
               </th>
               <th>
-                <h1>Current Price (000 VND)</h1>
+                <h1>Current Price</h1>
               </th>
               <th>
                 <h1>Quantity</h1>
               </th>
               <th>
-                <h1>Current Value (000 VND)</h1>
+                <h1>Current Value</h1>
               </th>
               <th>
-                <h1>Daily Change (000 VND)</h1>
+                <h1>Daily Change</h1>
               </th>
               <th>
                 <h1>Action</h1>
@@ -265,6 +285,13 @@ class PopUp extends React.Component<any, State> {
               const currentValue = quantity * price;
               const initPrice = originalPrice * quantity;
               const profit = currentValue - initPrice;
+              const isEditingQuantityStockActive =
+                !!editingQuantityStock &&
+                editingQuantityStock.stockName === name;
+              const displayingQuantity = isEditingQuantityStockActive
+                ? // @ts-expect-error check null already
+                  editingQuantityStock.quantity
+                : quantity;
               return (
                 <tr key={name}>
                   <td>{name}</td>
@@ -273,11 +300,7 @@ class PopUp extends React.Component<any, State> {
                   <td className="editable">
                     <input
                       type="number"
-                      value={
-                        !editingQuantityStock
-                          ? quantity
-                          : editingQuantityStock.quantity
-                      }
+                      value={displayingQuantity}
                       onFocus={() => {
                         this.setState({
                           editingQuantityStock: { stockName: name, quantity },
@@ -288,7 +311,7 @@ class PopUp extends React.Component<any, State> {
                       }}
                       onChange={this._onNewQuantityChange}
                     />
-                    {editingQuantityStock !== null && (
+                    {isEditingQuantityStockActive && (
                       <i
                         className="fa fa-check"
                         aria-hidden="true"
@@ -296,7 +319,7 @@ class PopUp extends React.Component<any, State> {
                       />
                     )}
                   </td>
-                  <td>{currentValue}</td>
+                  <td>{Math.round(currentValue)}</td>
                   <td className={generateClassNameBasedOnProfit(profit)}>
                     {generateProfitText(profit)}
                   </td>
@@ -312,7 +335,7 @@ class PopUp extends React.Component<any, State> {
             })}
           </tbody>
         </table>
-        <p>{`Total : ${this._calculateTotal()} (000 VND)`}</p>
+        <p>{`Total : ${this._calculateTotal()}`}</p>
         <div className="button" onClick={this._onAddStockButtonPress}>
           Click Here To Add New Stock
         </div>
