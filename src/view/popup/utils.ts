@@ -22,8 +22,3 @@ export function generateClassNameBasedOnProfit(profit: number): string {
 
   return "";
 }
-
-export function getCurrentTimeChartLabel(): string {
-  const currentTime = new Date();
-  return currentTime.toTimeString().split(" ")[0];
-}

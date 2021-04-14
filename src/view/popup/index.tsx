@@ -1,10 +1,6 @@
 import * as React from "react";
 import "./style.scss";
-import {
-  generateClassNameBasedOnProfit,
-  generateProfitText,
-  getCurrentTimeChartLabel,
-} from "./utils";
+import { generateClassNameBasedOnProfit, generateProfitText } from "./utils";
 import AssetChart from "./components/AssetChart";
 import { ChartData } from "./types";
 
@@ -19,13 +15,12 @@ type StockMap = Record<string, Stock>;
 type State = {
   stocks: StockMap;
   showNewStockInput: boolean;
-  newStockQuantity: number;
+  newStockQuantity: number | null;
   newStockName: string;
-  editingQuantityStock: { stockName: string; quantity: number } | null;
+  editingQuantityStock: { stockName: string; quantity: number | null } | null;
   chartData: ChartData;
 };
 
-const MAX_ELEMENTS = 100;
 class PopUp extends React.Component<any, State> {
   _changeListener: Object | null = null;
   constructor(props: any) {
@@ -33,7 +28,7 @@ class PopUp extends React.Component<any, State> {
     this.state = {
       stocks: {},
       newStockName: "",
-      newStockQuantity: 0,
+      newStockQuantity: null,
       showNewStockInput: false,
       editingQuantityStock: null,
       chartData: { data: [], time: [] },
@@ -44,26 +39,23 @@ class PopUp extends React.Component<any, State> {
     document.addEventListener("keyup", this._onKeyUp);
     if (chrome && chrome.storage) {
       this._changeListener = chrome.storage.onChanged.addListener(
-        (changes: { stocks: { oldValue: StockMap; newValue: StockMap } }) => {
-          if (!!changes.stocks) {
-            const newTotalValue = this._calculateTotal(changes.stocks.newValue);
-            this.setState(({ chartData }) => {
-              const { data, time } = chartData;
-              const newData = [...data, newTotalValue];
-              const newTime = [...time, getCurrentTimeChartLabel()];
-              return {
-                stocks: changes.stocks.newValue,
-                chartData: {
-                  data: newData.slice(
-                    Math.max(newData.length - MAX_ELEMENTS, 0)
-                  ),
-                  time: newTime.slice(
-                    Math.max(newData.length - MAX_ELEMENTS, 0)
-                  ),
-                },
-              };
-            }, this._syncWithChromeStorage);
+        (changes: {
+          stocks: { oldValue: StockMap; newValue: StockMap };
+          chartData: { oldValue: ChartData; newValue: ChartData };
+        }) => {
+          const { stocks, chartData } = changes;
+          if (!stocks && !chartData) {
+            return;
           }
+          const newUpdatedData = {
+            ...(stocks?.newValue && {
+              stocks: stocks?.newValue,
+            }),
+            ...(chartData?.newValue && {
+              chartData: chartData?.newValue,
+            }),
+          };
+          this.setState(newUpdatedData);
         }
       );
     }
@@ -98,7 +90,6 @@ class PopUp extends React.Component<any, State> {
       ["stocks", "chartData"],
       ({ stocks, chartData }: { stocks?: StockMap; chartData?: ChartData }) => {
         if (!!stocks || !!chartData) {
-          //console.log("chartData", chartData);
           this.setState(
             ({
               stocks: currentStockDataInState,
@@ -135,7 +126,9 @@ class PopUp extends React.Component<any, State> {
       this.setState({
         [name]:
           name === "newStockQuantity"
-            ? Math.max(0, !!value ? parseInt(value) : 0)
+            ? !!value
+              ? parseInt(value)
+              : null
             : value.toUpperCase(),
       });
     }
@@ -147,24 +140,19 @@ class PopUp extends React.Component<any, State> {
       value: string;
     };
   }) => {
-    const { value } = event.target;
-    this.setState(({ editingQuantityStock }) =>
-      editingQuantityStock
-        ? {
-            editingQuantityStock: {
-              ...editingQuantityStock,
-              quantity: Math.max(0, Math.max(0, !!value ? parseInt(value) : 0)),
-            },
-          }
-        : null
-    );
+    const { value, name } = event.target;
+    this.setState({
+      editingQuantityStock: {
+        stockName: name,
+        quantity: !!value ? parseInt(value) : null,
+      },
+    });
   };
 
   _syncWithChromeStorage = () => {
     if (!!chrome && chrome.storage) {
       chrome.storage.sync.set({
         stocks: this.state.stocks,
-        chartData: this.state.chartData,
       });
     }
   };
@@ -183,7 +171,7 @@ class PopUp extends React.Component<any, State> {
           ...stocks,
           [stockName]: {
             ...stocks[stockName],
-            quantity,
+            quantity: quantity || 0,
           },
         },
         editingQuantityStock: null,
@@ -246,8 +234,10 @@ class PopUp extends React.Component<any, State> {
     } = this.state;
     return (
       <div className="popupContainer">
-        <p>Vietnam Stock Manager inda house !!!</p>
-        <p> Unit : 000 VND </p>
+        <h2 style={{ paddingBottom: 0, fontWeight: "bold" }}>
+          Vietnam Stock Manager inda house !!!
+        </h2>
+        <h2 style={{ paddingBottom: 0, fontWeight: "bold" }}>Unit: 000 VND</h2>
         <table className="container">
           <thead>
             <tr>
@@ -290,7 +280,7 @@ class PopUp extends React.Component<any, State> {
                 editingQuantityStock.stockName === name;
               const displayingQuantity = isEditingQuantityStockActive
                 ? // @ts-expect-error check null already
-                  editingQuantityStock.quantity
+                  editingQuantityStock.quantity || ""
                 : quantity;
               return (
                 <tr key={name}>
@@ -300,6 +290,7 @@ class PopUp extends React.Component<any, State> {
                   <td className="editable">
                     <input
                       type="number"
+                      name={name}
                       value={displayingQuantity}
                       onFocus={() => {
                         this.setState({
@@ -335,7 +326,6 @@ class PopUp extends React.Component<any, State> {
             })}
           </tbody>
         </table>
-        <p>{`Total : ${this._calculateTotal()}`}</p>
         <div className="button" onClick={this._onAddStockButtonPress}>
           Click Here To Add New Stock
         </div>
@@ -353,7 +343,7 @@ class PopUp extends React.Component<any, State> {
               <input
                 className="stockRowContainer__textInput"
                 name="newStockQuantity"
-                value={newStockQuantity}
+                value={newStockQuantity || ""}
                 type="number"
                 onChange={this._onTextChange}
               />
@@ -363,6 +353,8 @@ class PopUp extends React.Component<any, State> {
             </div>
           </div>
         )}
+        <div className="line" />
+        <h1 className="bold">{`Total : ${this._calculateTotal()}`}</h1>
         <AssetChart chartData={chartData} />
       </div>
     );
