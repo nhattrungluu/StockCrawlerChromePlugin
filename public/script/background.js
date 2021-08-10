@@ -1,106 +1,137 @@
 "use strict";
+
+
 function getCurrentTimeChartLabel() {
-  const currentTime = new Date();
-  return currentTime.toTimeString().split(" ")[0];
+    const currentTime = new Date();
+    return currentTime.toTimeString().split(" ")[0];
 }
 
 const IFRAME_IDS = ["hose", "hnx", "upcom"];
-const MAX_ELEMENTS = 200;
+let lastUpdateIframeTime = new Date();
+
+function getTimeGapFromInputDate(date) {
+    const now = new Date();
+    return {now, gap: now.getTime() - lastUpdate.getTime()}
+}
+
+const IFRAME_UPDATE_INTERVAL = 300000 // 5 minutes
 function refreshIframe() {
-  IFRAME_IDS.forEach((id) => {
-    document.getElementById(id).src = document.getElementById(id).src;
-  });
+    const {now, gap} = getTimeGapFromInputDate(lastUpdateIframeTime);
+    if (gap >= IFRAME_UPDATE_INTERVAL) {
+        lastUpdateIframeTime = now;
+        IFRAME_IDS.forEach((id) => {
+            document.getElementById(id).src = document.getElementById(id).src;
+        });
+    }
 }
 
 function initAlarm() {
-  chrome.alarms.create("refreshIframe", {
-    delayInMinutes: 30,
-    periodInMinutes: 30,
-  });
+    chrome.alarms.create("refreshIframe", {
+        delayInMinutes: 30,
+        periodInMinutes: 30,
+    });
 }
 
 function calculateTotal(stocks) {
-  return Math.round(
-    Object.keys(stocks).reduce((previousVal, stockName) => {
-      const currentStock = stocks[stockName];
-      const { quantity, price } = currentStock;
-      return previousVal + quantity * price;
-    }, 0)
-  );
+    return Math.round(
+        Object.keys(stocks).reduce((previousVal, stockName) => {
+            const currentStock = stocks[stockName];
+            const {quantity, price} = currentStock;
+            return previousVal + quantity * price;
+        }, 0)
+    );
 }
 
-function syncLatestStockData() {
-  chrome.storage.sync.get(["stocks", "chartData"], ({ stocks, chartData }) => {
-    let isDirty = false;
-    Object.keys(batchUpdateData).forEach((stockName) => {
-      if (!stocks[stockName]) {
-        return;
-      }
-      const {
-        price: newPrice,
-        originalPrice: newOriginalPrice,
-      } = batchUpdateData[stockName];
-      const { price, originalPrice } = stocks[stockName];
-      if (newPrice !== price || newOriginalPrice !== originalPrice) {
-        isDirty = true;
-        stocks[stockName] = {
-          ...stocks[stockName],
-          ...batchUpdateData[stockName],
-        };
-      }
-    });
-    console.log("isDirty", isDirty);
-    if (isDirty) {
-      const newTotalValue = calculateTotal(stocks);
-      const { data = [], time = [] } = chartData || {};
-      const newData = [...data, newTotalValue];
-      const newTime = [...time, getCurrentTimeChartLabel()];
-      chrome.storage.sync.set({
-        stocks,
-        chartData: {
-          data: newData.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
-          time: newTime.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
-        },
-      });
-    }
-  });
-}
-
+const MAX_ELEMENTS = 200;
 let batchUpdateData = {};
 let lastUpdate = new Date();
 const UPDATE_INTERVAL = 10000;
-if (chrome) {
-  chrome.runtime.onMessage.addListener(function (message) {
-    const { data } = message;
-    if (!data) {
-      return;
-    }
 
-    batchUpdateData = { ...batchUpdateData, ...data };
-    const now = new Date();
-    if (now.getTime() - lastUpdate.getTime() >= UPDATE_INTERVAL) {
-      lastUpdate = now;
-      syncLatestStockData();
-    }
-  });
-
-  chrome.runtime.onStartup.addListener(function () {
-    initAlarm();
-  });
-
-  chrome.runtime.onInstalled.addListener(function () {
-    initAlarm();
-  });
-
-  chrome.alarms.onAlarm.addListener(function (alarm) {
-    const { name } = alarm;
-    switch (name) {
-      case "refreshIframe": {
-        refreshIframe();
-      }
-      default: {
+function syncLatestStockData(data) {
+    batchUpdateData = {...batchUpdateData, ...data};
+    const {now, gap} = getTimeGapFromInputDate(lastUpdateIframeTime);
+    if (gap < UPDATE_INTERVAL) {
         return;
-      }
     }
-  });
+
+    lastUpdate = now;
+    chrome.storage.sync.get(["stocks", "chartData"], ({stocks, chartData}) => {
+        let isDirty = false;
+        Object.keys(batchUpdateData).forEach((stockName) => {
+            if (!stocks[stockName]) {
+                return;
+            }
+            const {
+                price: newPrice,
+                originalPrice: newOriginalPrice,
+            } = batchUpdateData[stockName];
+            const {price, originalPrice} = stocks[stockName];
+            if (newPrice !== price || newOriginalPrice !== originalPrice) {
+                isDirty = true;
+                stocks[stockName] = {
+                    ...stocks[stockName],
+                    ...batchUpdateData[stockName],
+                };
+            }
+        });
+        console.log("isDirty", isDirty);
+        if (isDirty) {
+            const newTotalValue = calculateTotal(stocks);
+            const {data = [], time = []} = chartData || {};
+            const newData = [...data, newTotalValue];
+            const newTime = [...time, getCurrentTimeChartLabel()];
+            chrome.storage.sync.set({
+                stocks,
+                chartData: {
+                    data: newData.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
+                    time: newTime.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
+                },
+            });
+        }
+    });
 }
+
+if (chrome) {
+    chrome.runtime.onMessage.addListener(function (message) {
+            switch (message.type) {
+                case "UPDATE_DATA": {
+                    const {data} = message;
+                    if (!data) {
+                        return;
+                    }
+
+                    syncLatestStockData(data);
+                    return;
+                }
+                case "REFRESH_IFRAME" : {
+                    refreshIframe();
+                    return;
+                }
+
+                default: {
+                    throw ("unknown message type ")
+                }
+            }
+        }
+    )
+}
+
+chrome.runtime.onStartup.addListener(function () {
+    initAlarm();
+});
+
+chrome.runtime.onInstalled.addListener(function () {
+    initAlarm();
+});
+
+chrome.alarms.onAlarm.addListener(function (alarm) {
+    const {name} = alarm;
+    switch (name) {
+        case "refreshIframe": {
+            refreshIframe();
+        }
+        default: {
+            return;
+        }
+    }
+});

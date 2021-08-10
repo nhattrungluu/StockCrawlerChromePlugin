@@ -1,5 +1,5 @@
 .popupContainer {
-  min-width: 740px;
+  min-width: 760px;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -19,6 +19,11 @@
 
     &__textInput {
       margin: 5px;
+      width: 110px;
+    }
+
+    &__rowTitle {
+      min-width: 50px;
     }
   }
 
@@ -80,13 +85,11 @@ h2 {
   display: block;
   line-height: 1em;
   padding-bottom: 2em;
-  color: #fb667a;
 }
 
 h2 a {
   font-weight: 700;
   text-transform: uppercase;
-  color: #fb667a;
   text-decoration: none;
 }
 

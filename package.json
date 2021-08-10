@@ -22,6 +22,7 @@
     "bfj": "^7.0.2",
     "camelcase": "^6.1.0",
     "case-sensitive-paths-webpack-plugin": "2.3.0",
+    "chart.js": "^2.3",
     "css-loader": "4.3.0",
     "dotenv": "8.2.0",
     "dotenv-expand": "5.1.0",
@@ -72,8 +73,7 @@
     "webpack": "4.44.2",
     "webpack-dev-server": "3.11.1",
     "webpack-manifest-plugin": "2.2.0",
-    "workbox-webpack-plugin": "5.1.4",
-    "chart.js": "^2.3"
+    "workbox-webpack-plugin": "5.1.4"
   },
   "scripts": {
     "start": "node scripts/start.js",
@@ -84,7 +84,11 @@
     "extends": [
       "react-app",
       "react-app/jest"
-    ]
+    ],
+    "env": {
+      "webextensions": true,
+      "browser": true
+    }
   },
   "browserslist": {
     "production": [

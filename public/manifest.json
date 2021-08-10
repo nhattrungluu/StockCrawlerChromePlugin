@@ -1,6 +1,6 @@
 {
   "name": "Vietnam Stock Manager",
-  "version": "1.1.0",
+  "version": "1.2.0",
   "description": "This is an extension to manage your Vietnam stock values",
   "background": {
     "page": "background.html",
