@@ -36,6 +36,10 @@ class PopUp extends React.Component<any, State> {
     }
 
     componentDidMount() {
+        if (chrome && chrome.extension) {
+            // make sure that background page will be activated
+            chrome.extension.getBackgroundPage()
+        }
         /**
          * Temporary workaround for secondary monitors on MacOS where redraws don't happen
          * @See https://bugs.chromium.org/p/chromium/issues/detail?id=971701
@@ -71,10 +75,6 @@ class PopUp extends React.Component<any, State> {
                     document.adoptedStyleSheets = [...document.adoptedStyleSheets, fontFaceSheet]
                 }
             )
-        }
-
-        if (chrome && chrome.runtime) {
-            chrome.runtime.sendMessage({type: "REFRESH_IFRAME"});
         }
 
         this._initStoredStock();
@@ -265,7 +265,6 @@ class PopUp extends React.Component<any, State> {
             chartData,
             removingStockName,
         } = this.state;
-        console.log('this.state', this.state)
         return (
             <div className="popupContainer">
                 {!!removingStockName &&

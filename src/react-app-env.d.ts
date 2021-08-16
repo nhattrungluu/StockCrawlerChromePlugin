@@ -2,4 +2,4 @@
 
 declare module "*.svg";
 
-declare var chrome: { storage: any, runtime: any };
+declare var chrome: { storage: any, runtime: any, extension: any };

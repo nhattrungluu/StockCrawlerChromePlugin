@@ -6,6 +6,10 @@ const CRAWLING_INDEX_ENUM = {
 setInterval(() => {
     if (chrome && chrome.storage) {
         chrome.storage.sync.get("stocks", ({stocks}) => {
+            if (!stocks) {
+                return;
+            }
+
             const data = {};
             Object.keys(stocks).forEach((stockName) => {
                 const currentStockRow = document.getElementById(stockName);
@@ -31,3 +35,7 @@ setInterval(() => {
         });
     }
 }, 5000);
+
+setInterval(() => {
+    window.location.reload();
+}, 300000)

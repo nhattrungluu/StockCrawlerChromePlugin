@@ -6,32 +6,10 @@ function getCurrentTimeChartLabel() {
     return currentTime.toTimeString().split(" ")[0];
 }
 
-const IFRAME_IDS = ["hose", "hnx", "upcom"];
-let lastUpdateIframeTime = new Date();
-
 function getTimeGapFromInputDate(date) {
     const now = new Date();
     return {now, gap: now.getTime() - lastUpdate.getTime()}
 }
-
-const IFRAME_UPDATE_INTERVAL = 300000 // 5 minutes
-function refreshIframe() {
-    const {now, gap} = getTimeGapFromInputDate(lastUpdateIframeTime);
-    if (gap >= IFRAME_UPDATE_INTERVAL) {
-        lastUpdateIframeTime = now;
-        IFRAME_IDS.forEach((id) => {
-            document.getElementById(id).src = document.getElementById(id).src;
-        });
-    }
-}
-
-function initAlarm() {
-    chrome.alarms.create("refreshIframe", {
-        delayInMinutes: 30,
-        periodInMinutes: 30,
-    });
-}
-
 function calculateTotal(stocks) {
     return Math.round(
         Object.keys(stocks).reduce((previousVal, stockName) => {
@@ -49,7 +27,7 @@ const UPDATE_INTERVAL = 10000;
 
 function syncLatestStockData(data) {
     batchUpdateData = {...batchUpdateData, ...data};
-    const {now, gap} = getTimeGapFromInputDate(lastUpdateIframeTime);
+    const {now, gap} = getTimeGapFromInputDate(lastUpdate);
     if (gap < UPDATE_INTERVAL) {
         return;
     }
@@ -74,7 +52,6 @@ function syncLatestStockData(data) {
                 };
             }
         });
-        console.log("isDirty", isDirty);
         if (isDirty) {
             const newTotalValue = calculateTotal(stocks);
             const {data = [], time = []} = chartData || {};
@@ -103,11 +80,6 @@ if (chrome) {
                     syncLatestStockData(data);
                     return;
                 }
-                case "REFRESH_IFRAME" : {
-                    refreshIframe();
-                    return;
-                }
-
                 default: {
                     throw ("unknown message type ")
                 }
@@ -116,22 +88,3 @@ if (chrome) {
     )
 }
 
-chrome.runtime.onStartup.addListener(function () {
-    initAlarm();
-});
-
-chrome.runtime.onInstalled.addListener(function () {
-    initAlarm();
-});
-
-chrome.alarms.onAlarm.addListener(function (alarm) {
-    const {name} = alarm;
-    switch (name) {
-        case "refreshIframe": {
-            refreshIframe();
-        }
-        default: {
-            return;
-        }
-    }
-});
