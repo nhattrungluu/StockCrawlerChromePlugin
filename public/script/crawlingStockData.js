@@ -1,6 +1,6 @@
 const CRAWLING_INDEX_ENUM = {
-    MATCH_PRICE: 10,
-    ORIGINAL_PRICE: 3,
+    MATCH_PRICE: 13,
+    ORIGINAL_PRICE: 5,
 };
 
 setInterval(() => {
@@ -12,20 +12,18 @@ setInterval(() => {
 
             const data = {};
             Object.keys(stocks).forEach((stockName) => {
-                const currentStockRow = document.getElementById(stockName);
+                const currentStockRow = document.getElementById(`tr_${stockName}`);
                 if (!currentStockRow) {
                     return;
                 }
                 const price =
-                    currentStockRow.childNodes[CRAWLING_INDEX_ENUM.MATCH_PRICE]
-                        ?.innerText;
+                    currentStockRow.childNodes[CRAWLING_INDEX_ENUM.MATCH_PRICE].childNodes[1].childNodes[1]?.data;
                 const originalPrice =
-                    currentStockRow.childNodes[CRAWLING_INDEX_ENUM.ORIGINAL_PRICE]
-                        ?.innerText;
+                    currentStockRow.childNodes[CRAWLING_INDEX_ENUM.ORIGINAL_PRICE].childNodes[0]?.data;
                 if (!!price && !!originalPrice) {
                     data[stockName] = {
-                        price: Number(price),
-                        originalPrice: Number(originalPrice),
+                        price: Number(price.replace('"', '')),
+                        originalPrice: Number(originalPrice.replace('"', '')),
                     };
                 }
             });
@@ -35,7 +33,3 @@ setInterval(() => {
         });
     }
 }, 5000);
-
-setInterval(() => {
-    window.location.reload();
-}, 300000)

@@ -10,6 +10,7 @@ function getTimeGapFromInputDate(date) {
     const now = new Date();
     return {now, gap: now.getTime() - lastUpdate.getTime()}
 }
+
 function calculateTotal(stocks) {
     return Math.round(
         Object.keys(stocks).reduce((previousVal, stockName) => {
@@ -33,8 +34,8 @@ function syncLatestStockData(data) {
     }
 
     lastUpdate = now;
+    console.log('update at', now);
     chrome.storage.sync.get(["stocks", "chartData"], ({stocks, chartData}) => {
-        let isDirty = false;
         Object.keys(batchUpdateData).forEach((stockName) => {
             if (!stocks[stockName]) {
                 return;
@@ -45,26 +46,23 @@ function syncLatestStockData(data) {
             } = batchUpdateData[stockName];
             const {price, originalPrice} = stocks[stockName];
             if (newPrice !== price || newOriginalPrice !== originalPrice) {
-                isDirty = true;
                 stocks[stockName] = {
                     ...stocks[stockName],
                     ...batchUpdateData[stockName],
                 };
             }
         });
-        if (isDirty) {
-            const newTotalValue = calculateTotal(stocks);
-            const {data = [], time = []} = chartData || {};
-            const newData = [...data, newTotalValue];
-            const newTime = [...time, getCurrentTimeChartLabel()];
-            chrome.storage.sync.set({
-                stocks,
-                chartData: {
-                    data: newData.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
-                    time: newTime.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
-                },
-            });
-        }
+        const newTotalValue = calculateTotal(stocks);
+        const {data = [], time = []} = chartData || {};
+        const newData = [...data, newTotalValue];
+        const newTime = [...time, getCurrentTimeChartLabel()];
+        chrome.storage.sync.set({
+            stocks,
+            chartData: {
+                data: newData.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
+                time: newTime.slice(Math.max(newData.length - MAX_ELEMENTS, 0)),
+            },
+        });
     });
 }
 
@@ -88,3 +86,45 @@ if (chrome) {
     )
 }
 
+
+const IFRAME_IDS = ["hose", "hnx", "upcom"];
+const REFRESH_IF_DATA_IS_OUT_UPDATED_THRESHOLD = 300000;
+
+function refreshIframe() {
+    const {now, gap} = getTimeGapFromInputDate(lastUpdate);
+    if (gap < REFRESH_IF_DATA_IS_OUT_UPDATED_THRESHOLD) {
+        return;
+    }
+    lastUpdate = now;
+    IFRAME_IDS.forEach((id) => {
+        document.getElementById(id).src = document.getElementById(id).src;
+    });
+}
+
+function initAlarm() {
+    chrome.alarms.create("refreshIframe", {
+        delayInMinutes: 2,
+        periodInMinutes: 2,
+    });
+}
+
+
+chrome.runtime.onStartup.addListener(function () {
+    initAlarm();
+});
+
+chrome.runtime.onInstalled.addListener(function () {
+    initAlarm();
+});
+
+chrome.alarms.onAlarm.addListener(function (alarm) {
+    const {name} = alarm;
+    switch (name) {
+        case "refreshIframe": {
+            refreshIframe();
+        }
+        default: {
+            return;
+        }
+    }
+});
